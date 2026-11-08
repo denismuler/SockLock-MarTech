@@ -89,14 +89,18 @@ def _safe(name: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
 
 
+STEP_COL = "Крок, де відпав"
+
+
 def write_by_step(folder: Path, sessions: dict[str, Session], steps: list[str], dims: list[str],
-                  focus_src: str, focus_segs: list[Segment]) -> list[dict]:
-    """One CSV per funnel hop: everyone who reached `src` but not the next step. Returns [{src, dst, n, file}]."""
+                  focus_src: str, focus_segs: list[Segment]) -> tuple[list[dict], list[dict]]:
+    """One CSV per funnel hop (everyone who reached `src` but not the next step).
+    Returns ([{src, dst, n, file}], combined) where `combined` is every dropped user of every hop in one list."""
     folder.mkdir(parents=True, exist_ok=True)
     for old in folder.glob("*.csv"):
         old.unlink()
     em = email_step(sessions, steps)
-    out = []
+    meta, combined = [], []
     for i in range(len(steps) - 1):
         src, dst = steps[i], steps[i + 1]
         rows = dropped_rows(sessions, steps, src, dims, focus_segs if src == focus_src else [], src == em)
@@ -109,5 +113,13 @@ def write_by_step(folder: Path, sessions: dict[str, Session], steps: list[str], 
                 r.pop("Група, до якої належить", None)
         name = f"{i + 1:02d}_{_safe(src)}__{_safe(dst)}.csv"
         write_csv(folder / name, rows)
-        out.append({"src": src, "dst": dst, "n": len(rows), "file": f"{folder.name}/{name}"})
-    return out
+        meta.append({"src": src, "dst": dst, "n": len(rows), "file": f"{folder.name}/{name}"})
+        for r in rows:
+            combined.append({"Користувач (session_id)": r["Користувач (session_id)"], STEP_COL: f"{src} → {dst}",
+                             **{k: v for k, v in r.items() if k != "Користувач (session_id)"}})
+    cols = list(dict.fromkeys(k for r in combined for k in r))          # union of columns, first-seen order
+    for r in combined:
+        for c in cols:
+            r.setdefault(c, "")
+    combined = [{c: r[c] for c in cols} for r in combined]
+    return meta, combined

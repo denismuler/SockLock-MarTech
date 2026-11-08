@@ -149,12 +149,15 @@ def build_markdown(*, src: str, n_sessions: int, trs: list[Transition], focus: T
     if users:
         L.append(f"\n## Хто саме відпав\n")
         total = f"{len(users):,}".replace(",", " ")
-        L.append(f"На кроці `{focus.src}` відпали **{total}** людей. Повний список (хто, коли, де зупинився, з якого пристрою і браузера, "
-                 "яку помилку бачив) лежить у файлі `dropped_users.csv`: відкрийте в Excel або Numbers, відфільтруйте й відсортуйте. "
-                 "Угорі списку ті, хто потрапив у знайдені групи вище. Перші 15:\n")
+        fl = f"{focus.src} → {focus.dst}"
+        fusers = [r for r in users if r["Крок, де відпав"] == fl]
+        nf = format(len(fusers), ",").replace(",", " ")
+        L.append(f"У файлі `dropped_users.csv` усі, хто відпав на будь-якому кроці: **{total}** людей (колонка «Крок, де відпав» дозволяє відфільтрувати потрібний крок; "
+                 f"окремі файли по кроках лежать у `dropped_by_step/`). На головному кроці `{focus.src}` відпали **{nf}** людей. "
+                 "Угорі списку цього кроку ті, хто потрапив у знайдені групи вище. Перші 15:\n")
         L.append("| Користувач | Коли відпав | Де зупинився | Що сталося | Помилка | Група |")
         L.append("|---|---|---|---|---|---|")
-        for r in users[:15]:
+        for r in fusers[:15]:
             L.append(f"| `{r['Користувач (session_id)']}` | {r['Коли відпав']} | {r['Де зупинився']} | {r['Що сталося']} | "
                      f"{r['Помилка']} | {r['Група, до якої належить']} |")
     if by_step:
@@ -178,13 +181,13 @@ def build_markdown(*, src: str, n_sessions: int, trs: list[Transition], focus: T
     return "\n".join(L) + "\n"
 
 
-USER_COLS = ["Користувач (session_id)", "Коли відпав", "Де зупинився", "Що сталося", "Помилка", "Домен у помилці",
+USER_COLS = ["Користувач (session_id)", "Крок, де відпав", "Коли відпав", "Де зупинився", "Що сталося", "Помилка", "Домен у помилці",
              "Секунд на кроці", "Група, до якої належить"]
 USERS_JS = r"""
 (function(){
 var el=document.getElementById('ud');if(!el)return;
 var D=JSON.parse(el.textContent),cols=D.cols,all=D.rows,view=all.slice(),page=0,size=50,sortK=-1,asc=true;
-var t=document.getElementById('u'),f=document.getElementById('uf'),info=document.getElementById('ui'),sel=document.getElementById('us');
+var t=document.getElementById('u'),f=document.getElementById('uf'),chips=document.getElementById('ust'),sv='',info=document.getElementById('ui'),sel=document.getElementById('us');
 var prev=document.getElementById('up'),next=document.getElementById('un'),dl=document.getElementById('udl'),pg=document.getElementById('upg');
 t.tHead.innerHTML='<tr>'+cols.map(function(c){return '<th>'+c.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</th>';}).join('')+'</tr>';
 function esc(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
@@ -197,13 +200,15 @@ function draw(){
   pg.textContent='Сторінка '+(page+1)+' з '+pages();
   prev.disabled=page===0;next.disabled=page>=pages()-1;
 }
-function filt(){var q=f.value.toLowerCase();view=q?all.filter(function(r){return r.join(' ').toLowerCase().indexOf(q)>=0;}):all.slice();
+function filt(){var q=f.value.toLowerCase();view=all.filter(function(r){return (!sv||r[1]===sv)&&(!q||r.join(' ').toLowerCase().indexOf(q)>=0);});
   if(sortK>=0)doSort();page=0;draw();}
 function doSort(){var k=sortK;view.sort(function(x,y){var a=String(x[k]),z=String(y[k]),na=parseFloat(a),nz=parseFloat(z);
   var r=(/^-?[0-9.]+$/.test(a)&&/^-?[0-9.]+$/.test(z))?na-nz:a.localeCompare(z);return asc?r:-r;});}
 t.tHead.addEventListener('click',function(e){var th=e.target.closest('th');if(!th)return;var k=th.cellIndex;
   if(k===sortK)asc=!asc;else{sortK=k;asc=true;}doSort();page=0;draw();});
 f.addEventListener('input',filt);
+chips.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;sv=b.getAttribute('data-v');
+  Array.prototype.forEach.call(chips.children,function(c){c.classList.toggle('on',c===b);});filt();});
 sel.addEventListener('change',function(){size=parseInt(sel.value,10);page=0;draw();});
 prev.addEventListener('click',function(){if(page>0){page--;draw();}});
 next.addEventListener('click',function(){if(page<pages()-1){page++;draw();}});
@@ -211,28 +216,39 @@ dl.addEventListener('click',function(){
   function q(v){v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
   var txt='\ufeff'+[cols].concat(view).map(function(r){return r.map(q).join(',');}).join('\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'}));
-  a.download='dropped_users_filtered.csv';document.body.appendChild(a);a.click();a.remove();});
+  a.download='dropped_users_'+(sv?sv.replace(/[^A-Za-z0-9_]+/g,'_'):'all_steps')+'.csv';document.body.appendChild(a);a.click();a.remove();});
 draw();})();
 """
 
 
-def _users_html(users: list[dict], step: str) -> str:
+def _users_html(users: list[dict], focus: Transition, trs: list[Transition]) -> str:
     import json
     cols = USER_COLS + [c for c in users[0] if c not in USER_COLS]
     data = json.dumps({"cols": cols, "rows": [[str(r.get(c, "")) for c in cols] for r in users]}, ensure_ascii=False)
     data = data.replace("</", "<\\/")
+    counts: dict[str, int] = {}
+    for r in users:
+        counts[r["Крок, де відпав"]] = counts.get(r["Крок, де відпав"], 0) + 1
     total = f"{len(users):,}".replace(",", " ")
-    return (f"<h2>Хто саме відпав</h2><p>Усі, хто дійшов до кроку <b>{html.escape(step)}</b>, але далі не пішов: "
-            f"<b>{total}</b> людей. Угорі ті, хто потрапив у групи вище. Клік по заголовку колонки сортує весь список, "
-            f"у полі нижче можна шукати по всіх (наприклад, <code>Android</code>, <code>вечір</code>, <code>plus_sign</code>). "
+    def chip(value: str, label: str, n: int, on: bool = False, hot: bool = False) -> str:
+        cls = "chip" + (" on" if on else "") + (" hot" if hot else "")
+        tip = ' title="Головний витік"' if hot else ""
+        return (f'<button type="button" class="{cls}" data-v="{html.escape(value)}"{tip}>'
+                f'{html.escape(label)} <span class="cn">{format(n, ",").replace(",", " ")}</span></button>')
+    chips = chip("", "Усі кроки", len(users), on=True) + "".join(
+        chip(f"{t.src} → {t.dst}", f"{t.src} → {t.dst}", counts.get(f"{t.src} → {t.dst}", 0), hot=(t.src == focus.src)) for t in trs)
+    return (f"<h2>Хто саме відпав</h2><p>Усі, хто відпав на будь-якому кроці квізу: <b>{total}</b> людей. "
+            f"Натисніть на крок, щоб побачити лише тих, хто відпав саме там (наприклад, <code>step_2 → step_3</code> "
+            f"це були на кроці 2 і не дійшли до 3). Клік по заголовку колонки сортує весь список, у полі пошуку можна шукати "
+            f"по всіх (наприклад, <code>Android</code>, <code>plus_sign</code>). "
             f"Кнопка «Завантажити CSV» зберігає саме те, що зараз знайдено.</p>"
-            f'<input id="uf" class="f" placeholder="Фільтр: введіть слово…"> <span class="dim" id="ui"></span>'
+            f'<div id="ust" class="chips">{chips}</div>'
+            f'<input id="uf" class="f" placeholder="Пошук: введіть слово…"> <span class="dim" id="ui"></span>'
             f'<div class="pager"><button id="up">← Назад</button> <span id="upg" class="dim"></span> <button id="un">Далі →</button> '
             f'<label class="dim">по <select id="us"><option>50</option><option>100</option><option>500</option></select> на сторінці</label> '
             f'<button id="udl">Завантажити CSV</button></div>'
             f'<div class="scroll"><table id="u"><thead></thead><tbody></tbody></table></div>'
             f'<script type="application/json" id="ud">{data}</script>')
-
 
 def _by_step_html(by_step: list[dict]) -> str:
     rows = "".join(
@@ -265,7 +281,7 @@ def build_html(trs: list[Transition], focus: Transition, segs: list[Segment], md
         f"<td>{html.escape(hint_for(s))}</td></tr>" for i, s in enumerate(segs, 1))
     plain = "<h2>Простими словами</h2><ol>" + "".join(
         f"<li>{html.escape(explain(sg, focus.src).replace('`', ''))}</li>" for sg in segs) + "</ol>" if segs else ""
-    users_html = (_by_step_html(by_step) if by_step else "") + (_users_html(users, focus.src) if users else "")
+    users_html = (_by_step_html(by_step) if by_step else "") + (_users_html(users, focus, trs) if users else "")
     return f"""<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QuizLeak · {html.escape(src)}</title><style>
 :root{{--bg:#fff;--fg:#1d2433;--mut:#667;--bar:#9db6d6;--focus:#d9534f;--line:#e3e7ee}}
@@ -276,7 +292,7 @@ main{{max-width:980px;margin:auto}} h1{{font-size:22px}} h2{{font-size:17px;marg
 .track{{background:var(--line);border-radius:4px;height:18px}} .bar{{background:var(--bar);height:100%;border-radius:4px}} .bar.focus{{background:var(--focus)}}
 .dim,.lbl{{color:var(--mut)}} .val{{font-variant-numeric:tabular-nums}}
 table{{border-collapse:collapse;width:100%;font-size:13px}} td,th{{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}}
-.scroll{{overflow-x:auto}} code{{font-size:12px}}\ninput.f{{width:100%;max-width:420px;padding:8px 10px;margin:6px 0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}}\n#u th{{cursor:pointer;white-space:nowrap}} .pager{{margin:6px 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}} .pager button,.pager select{{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer}} .pager button:disabled{{opacity:.4;cursor:default}} #u th:hover{{text-decoration:underline}}
+.scroll{{overflow-x:auto}} code{{font-size:12px}}\ninput.f{{width:100%;max-width:420px;padding:8px 10px;margin:6px 0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}}\n#u th{{cursor:pointer;white-space:nowrap}} .chips{{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}} .chip{{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}} .chip:hover{{border-color:var(--bar)}} .chip .cn{{color:var(--mut);margin-left:4px;font-variant-numeric:tabular-nums}} .chip.hot{{border-color:var(--focus)}} .chip.on{{background:var(--bar);border-color:var(--bar);color:#fff}} .chip.on .cn{{color:#fff;opacity:.85}}\n.pager{{margin:6px 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}} .pager button,.pager select{{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit;cursor:pointer}} .pager button:disabled{{opacity:.4;cursor:default}} #u th:hover{{text-decoration:underline}}
 </style></head><body><main><h1>QuizLeak</h1>
 <p><b>Перевірена таблиця:</b> <code>{html.escape(src)}</code> · сесій: {format(n_sessions, ',').replace(',', ' ')} · перевірено: {datetime.now():%Y-%m-%d %H:%M}</p>
 <p class="dim">Червоним — головний витік: <b>{html.escape(focus.src)} → {html.escape(focus.dst)}</b> (проходять {pct(focus.rate)}).</p>

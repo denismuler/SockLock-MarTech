@@ -233,3 +233,21 @@ def test_cli_writes_dropped_users_per_step(tmp_path):
     step4 = list(csv.DictReader(next(f for f in files if "step_4__step_5" in f.name).open(encoding="utf-8-sig")))
     assert "Помилка" in step4[0]
     assert "dropped_by_step/03_step_2__step_3.csv" in (out / "report.html").read_text(encoding="utf-8")
+
+
+def test_dropped_users_csv_has_everyone_who_dropped_at_any_step(tmp_path):
+    data = tmp_path / "q.csv"
+    synth.write(str(data), 4000, seed=3)
+    out = tmp_path / "out"
+    cli.main([str(data), "--out", str(out), "--min-n", "100"])
+    sess = events.load(str(data))[0]
+    funnel.annotate(sess, funnel.DEFAULT_STEPS)
+    trs = funnel.transitions(sess, funnel.DEFAULT_STEPS)
+    rows = list(csv.DictReader((out / "dropped_users.csv").open(encoding="utf-8-sig")))
+    assert len(rows) == sum(t.n_src - t.n_dst for t in trs)
+    by = {}
+    for r in rows:
+        by[r["Крок, де відпав"]] = by.get(r["Крок, де відпав"], 0) + 1
+    for t in trs:
+        assert by.get(f"{t.src} → {t.dst}", 0) == t.n_src - t.n_dst
+    assert 'id="ust"' in (out / "report.html").read_text(encoding="utf-8")

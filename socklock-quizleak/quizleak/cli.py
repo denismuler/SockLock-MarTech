@@ -74,8 +74,7 @@ def main(argv: list[str] | None = None) -> None:
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     seen_events = set().union(*(s.events for s in sessions.values()))
     has_email_events = bool({"email_focus", "email_submit", "email_error"} & seen_events)
-    dropped = users_mod.dropped_rows(sessions, steps, focus.src, dims, shown, has_email_events)
-    by_step = users_mod.write_by_step(out / "dropped_by_step", sessions, steps, dims, focus.src, shown)
+    by_step, dropped = users_mod.write_by_step(out / "dropped_by_step", sessions, steps, dims, focus.src, shown)
     md = report.build_markdown(src=Path(a.csv).name, n_sessions=n_start, trs=trs, focus=focus, focus_note=note,
                                segs=shown, n_tests=n_tests, email=email, clean_dims=clean, skipped_dims=skipped,
                                sample_n=n_sample, sample_days=days, target_lift=a.target_lift,
