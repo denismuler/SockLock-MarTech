@@ -1,0 +1,32 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SockLock · воронка квізу</title><style>
+:root{--bg:#fff;--fg:#1d2433;--mut:#667;--bar:#9db6d6;--focus:#d9534f;--line:#e3e7ee;--hl:#fdecea;--box:#f5f7fb}
+@media(prefers-color-scheme:dark){:root{--bg:#12161d;--fg:#e8ebf0;--mut:#98a2b3;--bar:#4a6a94;--focus:#e5645f;--line:#2a3140;--hl:#3a1f22;--box:#1a2029}}
+body{margin:0;padding:24px 16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1000px;margin:auto} h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin-top:28px} .dim{color:var(--mut)}
+.row{display:grid;grid-template-columns:220px 1fr 60px;gap:8px;align-items:center;margin:5px 0}
+.track{background:var(--line);border-radius:4px;height:20px} .bar{background:var(--bar);height:100%;border-radius:4px} .bar.focus{background:var(--focus)}
+table{border-collapse:collapse;width:100%;font-size:13px} td,th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} tr.hl{background:var(--hl)} .scroll{overflow-x:auto}
+.box{background:var(--box);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-top:10px}
+</style></head><body><main>
+<h1>SockLock: де відвалюються люди в квізі</h1>
+<p class="dim">Джерело: data room домашнього завдання (відсотки від усіх, хто клікнув на рекламу). Масштаб: США, 350 000 кліків на місяць ($350 000 ÷ $1), LTV $68.</p>
+
+<h2>Воронка: скільки людей зі 100 лишається на кожному кроці</h2><div class="row"><div class="lbl">Клік на рекламу</div><div class="track"><div class="bar" style="width:100.0%"></div></div><div class="val">100%</div></div><div class="row"><div class="lbl">Відкрили квіз</div><div class="track"><div class="bar" style="width:88.0%"></div></div><div class="val">88%</div></div><div class="row"><div class="lbl">Крок 3 з 6</div><div class="track"><div class="bar" style="width:61.0%"></div></div><div class="val">61%</div></div><div class="row"><div class="lbl">Крок 4 з 6 (розмір + email)</div><div class="track"><div class="bar focus" style="width:58.0%"></div></div><div class="val">58%</div></div><div class="row"><div class="lbl">Крок 5 з 6</div><div class="track"><div class="bar" style="width:36.0%"></div></div><div class="val">36%</div></div><div class="row"><div class="lbl">Персональна пропозиція</div><div class="track"><div class="bar" style="width:31.0%"></div></div><div class="val">31%</div></div><div class="row"><div class="lbl">Оплата</div><div class="track"><div class="bar" style="width:2.0%"></div></div><div class="val">2%</div></div>
+
+<h2>Де саме втрачаємо</h2>
+<div class="scroll"><table><tr><th>Перехід</th><th>З 100 кліків</th><th>Втрата</th><th>Не пішли далі (від тих, хто дійшов)</th><th>Людей на місяць</th><th>Максимум $ на місяць</th><th>Що це</th></tr><tr class=""><td>Клік на рекламу → Відкрили квіз</td><td class="n">100 → 88</td><td class="n"><b>−12</b></td><td class="n">12%</td><td class="n">42 000</td><td class="n">$64 909</td><td>кліки, що не відкрили квіз (лендінг, не квіз)</td></tr><tr class="hl"><td>Відкрили квіз → Крок 3 з 6</td><td class="n">88 → 61</td><td class="n"><b>−27</b></td><td class="n">31%</td><td class="n">94 500</td><td class="n">$210 689</td><td>тут два екрани: крок 2 у data room не вказано</td></tr><tr class=""><td>Крок 3 з 6 → Крок 4 з 6 (розмір + email)</td><td class="n">61 → 58</td><td class="n"><b>−3</b></td><td class="n">5%</td><td class="n">10 500</td><td class="n">$24 621</td><td></td></tr><tr class=""><td>Крок 4 з 6 (розмір + email) → Крок 5 з 6</td><td class="n">58 → 36</td><td class="n"><b>−22</b></td><td class="n">38%</td><td class="n">77 000</td><td class="n">$290 889</td><td>ГОЛОВНИЙ ВИТІК: крок з email</td></tr><tr class=""><td>Крок 5 з 6 → Персональна пропозиція</td><td class="n">36 → 31</td><td class="n"><b>−5</b></td><td class="n">14%</td><td class="n">17 500</td><td class="n">$76 774</td><td></td></tr><tr class=""><td>Персональна пропозиція → Оплата</td><td class="n">31 → 2</td><td class="n"><b>−29</b></td><td class="n">94%</td><td class="n">101 500</td><td class="n">—</td><td>рішення про оплату (ціна й пропозиція), інша проблема</td></tr></table></div>
+<p class="dim">«Максимум $» — скільки було б, якби ніхто не відпадав на цьому переході (людина, що пройшла, купує з тією ж ймовірністю, що й усі на наступному кроці). Це не прогноз. Для переходу «пропозиція → оплата» грошей не рахуємо: це рішення про покупку.</p>
+
+<div class="box"><b>Головне.</b> На кроці з email (88 → 61) зникають <b>27 людей зі 100</b>, тобто 31% тих, хто до нього дійшов.
+Це приблизно <b>94 500 людей на місяць</b>, а теоретичний максимум, якщо б не втрачали нікого, ≈ <b>$210 689</b> на місяць (реально повернути лише частину, див. розрахунок у документі).
+Більші цифри втрат є ще на двох переходах, але вони іншого типу: «відкрили квіз → крок 3» (27) охоплює два екрани, а «пропозиція → оплата» (29) це рішення про покупку, а не проблема форми.</div>
+
+<h2>«Хто саме відпав?»</h2>
+<div class="box">У data room є лише відсотки по кроках. <b>Списку людей, їхніх пристроїв, браузерів, креативів і помилок у ньому немає</b>, тому показати тут, хто саме відпав, не можна, не вигадуючи даних.
+<ol><li>Growth PM вигружає експорт подій квізу з Amplitude (за словами з завдання, у нього такий CSV є).</li>
+<li>Ви запускаєте <code>bash check.sh файл.csv</code> у папці <code>socklock-quizleak</code>.</li>
+<li>Скрипт показує те саме, що вище, а також групи людей, що відпадають сильніше за решту, і список конкретних користувачів: хто, коли, де зупинився, з якого пристрою, яку помилку бачив.</li></ol>
+Для демонстрації я згенерував <b>вигаданий</b> експорт квізу SockLock на 20 000 сесій (відкалібрований під цифри data room, з закладеними проблемами): <a href="../out/SockLock_quiz_events_SYNTHETIC/report.html">звіт «хто і де відвалився»</a>.</div>
+</main></body></html>
